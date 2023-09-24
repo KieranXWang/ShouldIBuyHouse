@@ -2,7 +2,22 @@ from mortgage import Mortgage
 from utils import annual_rate_to_monthly_rate
 
 
-class HousePurchaseModel:
+class ModelBase:
+    def _check_cash_positive(self, cash):
+        if cash < 0:
+            raise ValueError("Cash is below 0.")
+
+    def _init_month(self):
+        raise NotImplementedError("Must be implemented by child class.")
+
+    def _next_month(self):
+        raise NotImplementedError("Must be implemented by child class.")
+
+    def net_cash_value_over_time(self):
+        raise NotImplementedError("Must be implemented by child class.")
+
+
+class HousePurchaseModel(ModelBase):
     def __init__(self, down_payment_total, loan_total, monthly_cash, hoa, insurance, property_tax_rate=0.007,
                  inflation_rate=0.03, property_value_increase_rate=0.1, loan_interest_rate=0.03, mortgage_month=12*30,
                  cash_invest_increase_rate=0.1, n_month=12*30, init_cash=0):
@@ -48,6 +63,9 @@ class HousePurchaseModel:
         curr_cash_invest = cash
         curr_house_value = house_value
 
+        # check cash positive
+        self._check_cash_positive(cash)
+
         return curr_house_value, curr_cash_invest, curr_price_dict, 0
 
     def _next_month(self, last_house_value, last_cash_invest, last_price_dict, last_month):
@@ -80,6 +98,9 @@ class HousePurchaseModel:
         curr_cash_invest = cash
         curr_house_value = house_value
 
+        # check cash positive
+        self._check_cash_positive(cash)
+
         return curr_house_value, curr_cash_invest, curr_price_dict, month
 
     def net_cash_value_over_time(self):
@@ -104,7 +125,7 @@ class HousePurchaseModel:
         return net_value_list
 
 
-class HouseRentModel:
+class HouseRentModel(ModelBase):
     def __init__(self, init_cash, rent, monthly_cash, utility, inflation_rate=0.03, rent_increase_rate=0.05, n_month=12*30,
                  cash_invest_increase_rate=0.1):
         self.init_cash = init_cash
@@ -131,6 +152,9 @@ class HouseRentModel:
         curr_cash_invest = cash
         curr_rent = self.init_rent
 
+        # check cash positive
+        self._check_cash_positive(cash)
+
         return curr_rent, curr_cash_invest, curr_price_dict, 0
 
     def _next_month(self, last_rent, last_cash_invest, last_price_dict, last_month):
@@ -156,6 +180,9 @@ class HouseRentModel:
         curr_cash_invest = cash
         curr_rent = rent
 
+        # check cash positive
+        self._check_cash_positive(cash)
+
         return curr_rent, curr_cash_invest, curr_price_dict, month
 
     def net_cash_value_over_time(self):
@@ -174,11 +201,11 @@ class HouseRentModel:
         return net_value_list
 
 
-class HousePurchaseAndRentModel:
+class HousePurchaseAndRentModel(ModelBase):
     def __init__(self, down_payment_total, loan_total, monthly_cash, hoa, insurance, rent, property_tax_rate=0.007,
                  inflation_rate=0.03, property_value_increase_rate=0.1, loan_interest_rate=0.03, mortgage_month=12*30,
                  cash_invest_increase_rate=0.1, rent_increase_rate=0.05, rent_out_percentage=10/12, n_month=12*30,
-                 init_cash=0):
+                 init_cash=0, house_sell_loss=0.0):
         self.init_down_payment = down_payment_total
         self.init_loan = loan_total
         self.init_house_price = down_payment_total + loan_total
@@ -196,6 +223,7 @@ class HousePurchaseAndRentModel:
         self.rent_out_percentage = rent_out_percentage
         self.n_month = n_month
         self.init_cash = init_cash
+        self.house_sell_loss = house_sell_loss
         # mortgage
         self.mortgage = Mortgage(interest=loan_interest_rate, months=mortgage_month, amount=loan_total)
         self.mortgage_payment_monthly = self.mortgage.monthly_payment()
@@ -228,6 +256,9 @@ class HousePurchaseAndRentModel:
         curr_cash_invest = cash
         curr_house_value = house_value
         curr_rent = rent
+
+        # check cash positive
+        self._check_cash_positive(cash)
 
         return curr_house_value, curr_cash_invest, curr_price_dict, curr_rent, 0
 
@@ -265,13 +296,16 @@ class HousePurchaseAndRentModel:
         curr_house_value = house_value
         curr_rent = rent
 
+        # check cash positive
+        self._check_cash_positive(cash)
+
         return curr_house_value, curr_cash_invest, curr_price_dict, curr_rent, month
 
     def net_cash_value_over_time(self):
         net_value_list = []
         curr_house_value, curr_cash_invest, curr_price_dict, curr_rent, month = self._init_month()
         # net value = cash + sale house income * 0.95 - mortgage balance - (return last month rent)
-        net_val = curr_cash_invest + curr_house_value * 0.94 - self.mortgage_balance_list[month] - curr_rent
+        net_val = curr_cash_invest + curr_house_value * (1-self.house_sell_loss) - self.mortgage_balance_list[month] - curr_rent
         net_value_list.append(net_val)
 
         while month < self.n_month - 1:
@@ -280,9 +314,9 @@ class HousePurchaseAndRentModel:
                 last_rent=curr_rent, last_month=month)
             # net value = cash + sale house income * 0.95 - mortgage balance - return last month rent
             if month < self.mortgage_month:
-                net_val = curr_cash_invest + curr_house_value * 0.94 - self.mortgage_balance_list[month] - curr_rent
+                net_val = curr_cash_invest + curr_house_value * (1-self.house_sell_loss) - self.mortgage_balance_list[month] - curr_rent
             else:
-                net_val = curr_cash_invest + curr_house_value * 0.94 - curr_rent
+                net_val = curr_cash_invest + curr_house_value * (1-self.house_sell_loss) - curr_rent
 
             net_value_list.append(net_val)
 
