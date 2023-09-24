@@ -7,15 +7,6 @@ class ModelBase:
         if cash < 0:
             raise ValueError("Cash is below 0.")
 
-    def _init_month(self):
-        raise NotImplementedError("Must be implemented by child class.")
-
-    def _next_month(self):
-        raise NotImplementedError("Must be implemented by child class.")
-
-    def net_cash_value_over_time(self):
-        raise NotImplementedError("Must be implemented by child class.")
-
 
 class HousePurchaseModel(ModelBase):
     def __init__(self, down_payment_total, loan_total, monthly_cash, hoa, insurance, property_tax_rate=0.007,
